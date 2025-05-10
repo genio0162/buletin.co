@@ -387,11 +387,9 @@ const BuletinRichEditor: React.FC = () => {
 
   const insertPaidContentLine = () => {
     if (!editorRef.current || hasPaidLine) return;
-    
-    const selection = window.getSelection();
-    const range = selection?.getRangeAt(0);
-    
-    if (!selection || !range) return;
+      
+    // Selalu sisipkan di akhir editor untuk konsistensi
+    const editor = editorRef.current;
     
     // Create div with paid content line
     const paidLineDiv = document.createElement('div');
@@ -416,67 +414,52 @@ const BuletinRichEditor: React.FC = () => {
     breakElement.innerHTML = '<br>';
     paidContentDiv.appendChild(breakElement);
     
-    // Insert both elements
-    range.deleteContents();
-    range.insertNode(paidContentDiv);
-    range.insertNode(paidLineDiv);
+    // PENTING: Bersihkan editor dari semua elemen paid line sebelumnya (untuk jaga-jaga)
+    const existingPaidLine = editor.querySelector('.paid-content-line');
+    const existingPaidContent = editor.querySelector('.paid-content');
+    
+    if (existingPaidLine) existingPaidLine.remove();
+    if (existingPaidContent) existingPaidContent.remove();
+    
+    // Tambahkan ke editor dengan urutan yang benar (tidak bergantung pada selection)
+    editor.appendChild(paidLineDiv);
+    editor.appendChild(paidContentDiv);
     
     setHasPaidLine(true);
     
-    // Position cursor in empty line after PAID CONTENT
-    const newPosition = document.createRange();
-    newPosition.setStart(breakElement, 0);
-    newPosition.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(newPosition);
+    // Posisikan kursor di dalam elemen konten berbayar
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.setStart(breakElement, 0);
+    range.collapse(true);
+    
+    if (selection) {
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
     
     // Focus back to editor
-    editorRef.current.focus();
+    editor.focus();
     
     // Check active formatting
     checkActiveFormatting();
   };
 
   const removePaidContentLine = () => {
-    if (!editorRef.current || !hasPaidLine) return;
+    if (!editorRef.current) return;
+    
+    const editor = editorRef.current;
     
     // Find elements with paid-content-line class
-    const paidLine = editorRef.current.querySelector('.paid-content-line');
-    const paidContent = editorRef.current.querySelector('.paid-content');
+    const paidLine = editor.querySelector('.paid-content-line');
+    const paidContent = editor.querySelector('.paid-content');
     
-    // If found, remove
-    if (paidLine) {
-      // Save content from paid content div
-      const paidContentHTML = paidContent?.innerHTML || '';
-      
-      // Remove both elements
-      paidLine.remove();
-      if (paidContent) {
-        paidContent.remove();
-      }
-      
-      // Insert paid content at cursor position
-      if (paidContentHTML.trim() && paidContentHTML !== '<p><br></p>') {
-        const selection = window.getSelection();
-        const range = selection?.getRangeAt(0);
-        
-        if (selection && range) {
-          range.deleteContents();
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = paidContentHTML;
-          
-          // Fix TypeScript error by checking nulls
-          while (tempDiv.firstChild) {
-            const node = tempDiv.lastChild;
-            if (node) {
-              range.insertNode(node);
-            }
-          }
-        }
-      }
-      
-      setHasPaidLine(false);
-    }
+    // Jika elemen ditemukan, hapus
+    if (paidLine) paidLine.remove();
+    if (paidContent) paidContent.remove();
+    
+    // Update state
+    setHasPaidLine(false);
     
     // Check active formatting
     checkActiveFormatting();
